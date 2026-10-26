@@ -1,1 +1,0 @@
-{"rewrites":[{"source":"/api/(.*)","destination":"https://YOUR-HEROKU-APP.herokuapp.com/api/$1"}]}

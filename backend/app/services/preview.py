@@ -15,7 +15,10 @@ def preview_day(delivery_date: date, cutoff_hour: int = 10) -> dict:
         actual = 11200 + 3400 * sin((index - 8) * 3.14159 / 24) + 750 * sin(index * 0.77)
         forecast = actual + 420 * sin(index * 0.91 + 0.7) + 160 * sin(index * 0.27)
         actuals.append({"fuelType": "WIND", "startTime": cursor.isoformat(), "generation": actual})
-        forecasts.append({"startTime": cursor.isoformat(), "publishTime": cutoff.isoformat(), "generation": forecast})
+        # Mirror WINDFOR's hourly source cadence; analysis aligns the hour value
+        # to both half-hour settlement periods it covers.
+        if index % 2 == 0:
+            forecasts.append({"startTime": cursor.isoformat(), "publishTime": cutoff.isoformat(), "generation": forecast})
         cursor += timedelta(minutes=30)
         index += 1
     result = analyze(delivery_date, {"actuals": actuals, "forecasts": forecasts, "cutoff": cutoff, "day_start": start, "day_end": end}, cutoff_hour)

@@ -29,11 +29,18 @@ async def dashboard(
     try:
         raw = await load_day(delivery_date, cutoff_hour)
         result = analyze(delivery_date, raw, cutoff_hour)
-        if result["metrics"]["forecastCoverage"] == 0:
-            raise ValueError(
-                f"Elexon returned {len(raw['forecasts'])} forecast records but none matched "
-                f"{delivery_date.isoformat()} with a publish time before the selected cutoff."
+        if result["metrics"]["matchedPeriods"] == 0 and result["metrics"]["forecastPeriods"] == 0:
+            result["notice"] = (
+                "Elexon returned no eligible forecasts for this delivery date and cutoff. "
+                "Missing values remain null and accuracy metrics are unavailable until periods match."
             )
+        elif result["metrics"]["matchedPeriods"] == 0 and result["metrics"]["actualPeriods"] == 0:
+            result["notice"] = (
+                "Elexon returned no actual observations for this delivery date. "
+                "The live forecasts remain visible; accuracy metrics are unavailable until actuals arrive."
+            )
+        elif result["metrics"]["matchedPeriods"] == 0:
+            result["notice"] = "Live data was returned, but no settlement periods have both an eligible forecast and an actual observation."
         return result
     except httpx.HTTPStatusError as exc:
         logger.warning("Elexon returned HTTP %s for dashboard request", exc.response.status_code)
@@ -50,8 +57,6 @@ async def dashboard(
         result = preview_day(delivery_date, cutoff_hour)
         result["notice"] = f"{exc} Showing synthetic preview data."
         return result
-    except Exception:
+    except Exception as exc:
         logger.exception("Unexpected dashboard data error")
-        result = preview_day(delivery_date, cutoff_hour)
-        result["notice"] = "An unexpected data error occurred; showing synthetic preview data."
-        return result
+        raise HTTPException(status_code=502, detail="Dashboard data processing failed. Check the API logs for details.") from exc
